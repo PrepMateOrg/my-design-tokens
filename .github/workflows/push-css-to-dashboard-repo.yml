@@ -1,11 +1,20 @@
 name: Push CSS to Target Repository
 
+#on:
+  #push:
+    #branches:
+    #  - main
+   # paths:
+    #  - 'variables.css' # Triggers only when your generated CSS file changes
+
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'variables.css' # Triggers only when your generated CSS file changes
+  workflow_run:
+    workflows: ["Build CSS Variables From Tokens"]
+    types:
+      - completed
+
+permissions:
+  contents: write
 
 jobs:
   deploy-css:
