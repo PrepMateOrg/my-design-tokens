@@ -1,0 +1,98 @@
+name: Parse Figma CSS & Build Tokens
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'input/**'
+      - 'parse-figma-css.js'
+      - 'convert-to-tokens.js'
+      - 'style-dictionary.config.js'
+      - 'css-imports/**'
+      - 'colors.scss'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Parse Figma CSS export
+        run: node parse-figma-css.js
+
+      - name: Convert to DTCG tokens
+        run: node convert-to-tokens.js
+
+      - name: Build Style Dictionary platforms
+        run: npx style-dictionary build --config style-dictionary.config.js
+
+      - name: Compile SCSS bundle
+        run: npx sass colors.scss build/variables.css
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add build/ || echo "No build changes to add"
+          git add package-lock.json || echo "No lock file changes"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Build: parse Figma CSS and compile tokens"
+            git push
+          fi
+
+      - name: Upload generated files as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-tokens
+          path: build/generated/
+
+  push-to-phila-ui:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout phila-ui-4 (token-test branch)
+        uses: actions/checkout@v3
+        with:
+          repository: CityOfPhiladelphia/phila-ui-4
+          ref: token-test
+          token: ${{ secrets.PHILA_UI_TOKEN }}
+
+      - name: Download generated files artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-tokens
+          path: downloaded/generated/
+
+      - name: Copy generated files into phila-ui-4
+        run: |
+          mkdir -p build/generated
+          cp -r downloaded/generated/. build/generated/
+
+      - name: Commit and push to phila-ui-4
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add build/generated/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Tokens: sync generated files from token pipeline"
+            git push
+          fi
