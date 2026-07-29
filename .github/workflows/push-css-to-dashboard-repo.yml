@@ -1,0 +1,35 @@
+name: Push CSS to Target Repository
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'variables.css' # Triggers only when your generated CSS file changes
+
+jobs:
+  deploy-css:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Repository
+        uses: actions/checkout@v4
+
+      - name: Push CSS File to pm-dashboard
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.DESTINATION_REPO_PAT }}
+        with:
+          # Source file configuration
+          source-directory: '.'
+          target-directory: 'styles' # Saves inside the styles/ folder of the target repo
+          file-name: 'variables.css' # Strictly copies only this file
+
+          # Destination repository configuration
+          destination-github-username: 'Coco89'
+          destination-repository-name: 'PrepMateOrg/pm-dashboard'
+          target-branch: 'main'
+
+          # Commit metadata
+          user-email: 'github-actions[bot]@://github.com'
+          user-name: 'github-actions[bot]'
+          commit-message: 'style: sync variables.css from design token repository [skip ci]'
